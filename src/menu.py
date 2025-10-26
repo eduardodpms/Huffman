@@ -106,7 +106,7 @@ class App():
         prefix = prefix_codes(tree)
 
         # Codificar o conteúdo, exibindo uma barra de progresso
-        bin_content = self.encode(content, prefix)
+        bin_content = self.encoding(content, prefix)
         self.label.config(text=f"Compressão Concluída")
         self.bar['value'] = 99.99
 
@@ -141,15 +141,16 @@ class App():
 
 
     # Codifica a sequêcia de caracteres do conteúdo lido
-    def encode(self, content, prefix):
-        bin_content = bitarray('')
+    def encoding(self, content, prefix):
+        progress, bin_content = 0, bitarray('')
 
         for char in content:
             bin_content += bitarray(prefix[char])
 
-            self.bar.step(100/len(content))
-            if(random.random() < 1e-5):
+            progress += 100/len(content)
+            if(random.random() < 9e-6):
                 self.label.config(text=f"Comprimindo Sequência: {self.bar['value']:.1f}%")
+                self.bar['value'] = progress
                 self.lw.update_idletasks()
         
         return bin_content
@@ -227,7 +228,7 @@ class App():
         content_bits = bits[header_bytes*8:]
 
         # Recuperar o conteúdo, exibindo uma barra de progresso
-        content = self.decode(content_bits, header)
+        content = self.decoding(content_bits, header)
         self.label.config(text=f"Descompressão Concluída")
         self.bar['value'] = 99.99
         
@@ -236,9 +237,9 @@ class App():
 
 
     # Decodifica os bits do conteúdo com base nos códigos prefixos
-    def decode(self, content_bits, header):
+    def decoding(self, content_bits, header):
         prefix = {v: k for k, v in header['prefix'].items()}
-        content, current_prefix = '', ''
+        progress, content, current_prefix = 0, '', ''
 
         for bit in content_bits: # Itera pelos bits, procurando correspondências no dicionário de prefixos
             current_prefix += f'{bit}'
@@ -247,9 +248,10 @@ class App():
                 content += prefix[current_prefix]
                 current_prefix = ''
 
-                self.bar.step(100/header['string'])
-                if(random.random() < 1e-5):
+                progress += 100/header['string']
+                if(random.random() < 9e-6):
                     self.label.config(text=f"Descomprimindo Sequência: {self.bar['value']:.1f}%")
+                    self.bar['value'] = progress
                     self.lw.update_idletasks()
 
         # Remover caracteres extras causados pela extensão de bits do bitarray
