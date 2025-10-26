@@ -154,7 +154,6 @@ class App():
 
             self.bar.step(100/len(content))
             self.label.config(text=f"Comprimindo Sequência: {self.bar['value']:.1f}%")
-            self.lw.update_idletasks() # Atualiza a interface
             
             if self.cancel_flag:
                 break
@@ -259,7 +258,6 @@ class App():
 
                 self.bar.step(100/header['string'])
                 self.label.config(text=f"Descomprimindo Sequência: {self.bar['value']:.1f}%")
-                self.lw.update_idletasks() # Atualiza a interface
             
             if self.cancel_flag:
                 break
