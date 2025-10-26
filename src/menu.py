@@ -2,8 +2,7 @@ from src.huffman import char_count, prefix_tree, prefix_codes
 from bitarray import bitarray
 from tkinter import filedialog, messagebox, ttk
 import tkinter as tk
-import threading
-import time
+import random
 import math
 import json
 import os
@@ -73,15 +72,16 @@ class App():
 
         # Obter sequências binárias para o header e o conteúdo
         try:
+            self.loading_window()
             bin_header, bin_content = self.compression(filepath, content)
-            if self.cancel_flag:
-                return
         except Exception as e:
+            self.lw.destroy()
             messagebox.showerror("Erro", f"Não foi possível codificar o conteúdo:\n{e}")
             return
 
         # Obter path do arquivo binário
         outpath = self.outpath(filepath, cmprssd_folder, cmprssd_id, bin_ext)
+        self.lw.destroy()
         if not outpath:
             return
         
@@ -108,14 +108,13 @@ class App():
         prefix = prefix_codes(tree)
 
         # Codificar o conteúdo, exibindo uma barra de progresso
-        threading.Thread(target=self.encode, args=(content, prefix)).start()
-        self.loading_window()
-        self.lw.destroy()
+        bin_content = self.encode(content, prefix)
+        self.label.config(text=f"Compressão Concluída")
 
         # Montar o header
         header = {
             'header': 0, # Quantidade de bytes do header codificado
-            'content': math.ceil(len(self.temp)/8), # Quantidade de bytes do conteúdo codificado
+            'content': math.ceil(len(bin_content)/8), # Quantidade de bytes do conteúdo codificado
             'string': n, # Quantidade de caracteres do conteúdo original
             'ext': os.path.splitext(filepath)[1], # Entensão do arquivo original
             'bin': 0 if type(content) == str else 1, # Se o arquivo original foi lido como binário
@@ -134,32 +133,27 @@ class App():
         bin_header = b'{"header": ' + size_bytes + bin_header[12:] # Dicionário serializado, com seu próprio tamanho
         
         # Visualizar o header
-        if(self.header_bool.get() and not self.cancel_flag):
+        if(self.header_bool.get()):
             print(f'{'='*64}\n{int((64-len(f'header for {os.path.basename(filepath)}'))/2)*' '}' \
                   f'{f'header for {os.path.basename(filepath)}'}\n\n{header}\n{'='*64}')
         
         # Retornar header e conteúdo serializados
-        return bin_header, self.temp
+        return bin_header, bin_content
 
 
     # Codifica a sequêcia de caracteres do conteúdo lido
     def encode(self, content, prefix):
         bin_content = bitarray('')
-        self.cancel_flag = False
-
-        time.sleep(0.1)
 
         for char in content:
             bin_content += bitarray(prefix[char])
 
             self.bar.step(100/len(content))
-            self.label.config(text=f"Comprimindo Sequência: {self.bar['value']:.1f}%")
-            
-            if self.cancel_flag:
-                break
+            if(random.random() < 1e-5):
+                self.label.config(text=f"Descomprimindo Sequência: {self.bar['value']:.1f}%")
+                self.lw.update_idletasks()
         
-        self.temp = bin_content
-        self.lw.quit()
+        return bin_content
 
 
 ################################################################################################################################
@@ -187,10 +181,10 @@ class App():
         
         # Obter o header e o conteúdo desserializados
         try:
+            self.loading_window()
             header, content = self.decompression(bits)
-            if self.cancel_flag:
-                return
         except Exception as e:
+            self.lw.destroy()
             messagebox.showerror("Erro", f"Não foi possível decodificar a sequência binária:\n{e}")
             return
 
@@ -199,8 +193,9 @@ class App():
             print(f'{'='*64}\n{int((64-len(f'header for {os.path.basename(filepath)}'))/2)*' '}' \
                   f'{f'header for {os.path.basename(filepath)}'}\n\n{header}\n{'='*64}')
 
-        # Obter path do arquivo de saída
+        # Obter path do arquivo de saída e fechar a janela de carregamento
         outpath = self.outpath(filepath, dcmprssd_folder, dcmprssd_id, header['ext'])
+        self.lw.destroy()
         if not outpath:
             return
 
@@ -233,21 +228,17 @@ class App():
         content_bits = bits[header_bytes*8:]
 
         # Recuperar o conteúdo, exibindo uma barra de progresso
-        threading.Thread(target=self.decode, args=(content_bits, header)).start()
-        self.loading_window()
-        self.lw.destroy()
+        content = self.decode(content_bits, header)
+        self.label.config(text=f"Descompressão Concluída")
         
         # Retornar header e conteúdo desserializados
-        return header, self.temp
+        return header, content
 
 
     # Decodifica os bits do conteúdo com base nos códigos prefixos
     def decode(self, content_bits, header):
         prefix = {v: k for k, v in header['prefix'].items()}
         content, current_prefix = '', ''
-        self.cancel_flag = False
-
-        time.sleep(0.1)
 
         for bit in content_bits: # Itera pelos bits, procurando correspondências no dicionário de prefixos
             current_prefix += f'{bit}'
@@ -257,17 +248,15 @@ class App():
                 current_prefix = ''
 
                 self.bar.step(100/header['string'])
-                self.label.config(text=f"Descomprimindo Sequência: {self.bar['value']:.1f}%")
-            
-            if self.cancel_flag:
-                break
+                if(random.random() < 1e-5):
+                    self.label.config(text=f"Descomprimindo Sequência: {self.bar['value']:.1f}%")
+                    self.lw.update_idletasks()
 
-        # Remover caracteres extras causados pela extensão de bits do Bitarray
+        # Remover caracteres extras causados pela extensão de bits do bitarray
         while(len(content) > header['string']):
             content = content[:-1]
-            
-        self.temp = content
-        self.lw.quit()
+        
+        return content
 
 
 ################################################################################################################################
@@ -292,27 +281,18 @@ class App():
                 title="Salvar como",
                 filetypes=[("All files", f"*{ext}")]
             ) if not resp else outpath
-    
+
 
     # Abre uma janela de carregamento para as operações de codificação e decodificação
     def loading_window(self):
         self.lw = tk.Toplevel(self.root)
         self.lw.title("Progresso")
-        self.lw.geometry("274x114")
+        self.lw.geometry("280x80")
         self.lw.resizable(False, False)
 
-        self.label = tk.Label(self.lw, text="")
+        self.label = tk.Label(self.lw, text="Iniciando Processamento")
         self.bar = ttk.Progressbar(self.lw, length=250)
-        lw_cancel = tk.Button(self.lw, text="Cancelar", width=12, command=self.loading_cancel)
-
-        self.label.pack(pady=10)
-        self.bar.pack()
-        lw_cancel.pack(padx=12, pady=12, anchor='se')
+        self.label.pack(pady=10), self.bar.pack()
 
         self.lw.grab_set()
-        self.lw.mainloop()
-
-
-    # Gera uma caixa de confirmação para cancelar o processamento
-    def loading_cancel(self):
-        self.cancel_flag = messagebox.askyesno("Cancelar?", f"Deseja cancelar a operação?")
+        self.lw.update_idletasks()
