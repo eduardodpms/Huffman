@@ -7,7 +7,6 @@ import math
 import json
 import os
 
-
 # Variáveis Globais
 cmprssd_folder = 'compressed/' # Pasta dos arquivos comprimidos
 dcmprssd_folder = 'decompressed/' # Pasta dos arquivos descomprimidos
@@ -42,7 +41,6 @@ class App():
         btn_decompress.grid(row=2, column=1, padx=5, pady=5)
         btn_exit.grid(row=3, column=1, padx=5, pady=5)
         checkbox.grid(row=4, column=1, padx=5, pady=(16, 0))
-
 
 ################################################################################################################################
 
@@ -110,6 +108,7 @@ class App():
         # Codificar o conteúdo, exibindo uma barra de progresso
         bin_content = self.encode(content, prefix)
         self.label.config(text=f"Compressão Concluída")
+        self.bar['value'] = 99.99
 
         # Montar o header
         header = {
@@ -150,7 +149,7 @@ class App():
 
             self.bar.step(100/len(content))
             if(random.random() < 1e-5):
-                self.label.config(text=f"Descomprimindo Sequência: {self.bar['value']:.1f}%")
+                self.label.config(text=f"Comprimindo Sequência: {self.bar['value']:.1f}%")
                 self.lw.update_idletasks()
         
         return bin_content
@@ -230,6 +229,7 @@ class App():
         # Recuperar o conteúdo, exibindo uma barra de progresso
         content = self.decode(content_bits, header)
         self.label.config(text=f"Descompressão Concluída")
+        self.bar['value'] = 99.99
         
         # Retornar header e conteúdo desserializados
         return header, content
@@ -294,5 +294,4 @@ class App():
         self.bar = ttk.Progressbar(self.lw, length=250)
         self.label.pack(pady=10), self.bar.pack()
 
-        self.lw.grab_set()
         self.lw.update_idletasks()
